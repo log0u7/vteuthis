@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -18,6 +19,11 @@ def load_env_file(path: Path) -> dict[str, str]:
         key, _, value = line.partition("=")
         env[key.strip()] = value.strip().strip("'\"")
     return env
+
+
+def merge_env(file_env: Mapping[str, str], runtime_env: Mapping[str, str]) -> dict[str, str]:
+    """Runtime environment wins over the .env file."""
+    return {**file_env, **runtime_env}
 
 
 @dataclass
@@ -67,4 +73,4 @@ class Config:
 
     @classmethod
     def load(cls) -> Config:
-        return cls.from_env({**os.environ, **load_env_file(Path(".env"))})
+        return cls.from_env(merge_env(load_env_file(Path(".env")), os.environ))

@@ -1,11 +1,39 @@
 from __future__ import annotations
 
+import ipaddress
 import json
 import re
+import socket
+from urllib.parse import urlparse
 
 import httpx
 
 DDG = "https://html.duckduckgo.com/html/"
+
+
+def validate_tool_url(url: str) -> None:
+    """Block SSRF: only http/https to publicly-routable addresses."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"scheme must be http/https: {url!r}")
+    host = parsed.hostname
+    if not host:
+        raise ValueError(f"no host in url: {url!r}")
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror as exc:
+        raise ValueError(f"cannot resolve host {host!r}") from exc
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_unspecified
+            or ip.is_multicast
+        ):
+            raise ValueError(f"private/internal address blocked: {host} -> {ip}")
 
 
 async def web_search(client: httpx.AsyncClient, query: str, limit: int = 5) -> dict:
@@ -28,6 +56,7 @@ def _parse_ddg(html: str) -> list[dict]:
 
 async def fetch_json(client: httpx.AsyncClient, url: str, max_bytes: int = 2_000_000) -> dict:
     """Fetch a key-free public JSON API (Kalshi, Polymarket, CoinGecko, Binance, EDGAR...)."""
+    validate_tool_url(url)
     async with client.stream("GET", url, headers={"User-Agent": "vteuthis/0.0"}) as resp:
         resp.raise_for_status()
         chunks: list[bytes] = []

@@ -23,6 +23,12 @@ class AgentState(TypedDict, total=False):
 
 
 MAX_ARTIFACT_CHARS = 60_000
+MAX_UNTRUSTED_CHARS = 800
+
+
+def sanitize_untrusted(text: str) -> str:
+    """Wrap untrusted tool/sandbox output so the LLM reads it as data, not instructions."""
+    return f"<untrusted>\n{text[:MAX_UNTRUSTED_CHARS]}\n</untrusted>"
 
 # ponytail: single graph, no sub-graphs or streaming; split when the tick
 # becomes multi-step complex.
@@ -139,7 +145,7 @@ def build_graph(llm, actions, checkpointer=None):
             "tools_used_recently": state.get("tools_used_recently") or [],
         }
         if state.get("result", "").startswith("FAIL"):
-            payload["previous_failure"] = state["result"]
+            payload["previous_failure"] = sanitize_untrusted(state["result"])
         messages = [
             {
                 "role": "system",

@@ -9,7 +9,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./docker/initdb.sql:/docker-entrypoint-initdb.d/initdb.sql:ro
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
   temporal:
     image: temporalio/auto-setup:1.29.7
     environment:
@@ -22,7 +22,7 @@ services:
     depends_on:
       - postgres
     ports:
-      - "7233:7233"
+      - "127.0.0.1:7233:7233"
   temporal-ui:
     image: temporalio/ui:2.56.0
     environment:
@@ -30,6 +30,6 @@ services:
     depends_on:
       - temporal
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
 volumes:
   pgdata:

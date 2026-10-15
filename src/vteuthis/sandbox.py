@@ -25,24 +25,30 @@ def _slugify(name: str) -> str:
     return slug or "task"
 
 
-def run_sync(source: str, name: str, *, image: str, timeout_s: int = 120) -> RunResult:
-    """Run artifact source as a one-shot non-root container with no network."""
-    task_dir = Path("experiments") / f"{int(time.time())}-{_slugify(name)}"
-    task_dir.mkdir(parents=True, exist_ok=True)
-    (task_dir / "task.py").write_text(source)
-    cmd = [
+def build_docker_cmd(image: str, task_dir: Path, uid: int, gid: int) -> list[str]:
+    return [
         "docker",
         "run",
         "--rm",
         "--user",
-        f"{os.getuid()}:{os.getgid()}",
+        f"{uid}:{gid}",
         "--network",
         "none",
+        "--read-only",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "--pids-limit",
+        "64",
         "--memory",
+        "512m",
+        "--memory-swap",
         "512m",
         "--cpus",
         "1.0",
-        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=64m",
         "-v",
         f"{task_dir.resolve()}:/task:ro",
         "-w",
@@ -51,6 +57,14 @@ def run_sync(source: str, name: str, *, image: str, timeout_s: int = 120) -> Run
         "python",
         "task.py",
     ]
+
+
+def run_sync(source: str, name: str, *, image: str, timeout_s: int = 120) -> RunResult:
+    """Run artifact source as a one-shot non-root container with no network."""
+    task_dir = Path("experiments") / f"{int(time.time())}-{_slugify(name)}"
+    task_dir.mkdir(parents=True, exist_ok=True)
+    (task_dir / "task.py").write_text(source)
+    cmd = build_docker_cmd(image, task_dir, os.getuid(), os.getgid())
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s)
         return RunResult(
