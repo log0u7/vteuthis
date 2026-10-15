@@ -1,0 +1,4 @@
+CREATE DATABASE vteuthis;
+GRANT ALL PRIVILEGES ON DATABASE vteuthis TO temporal;
+CREATE DATABASE vteuthis_test;
+GRANT ALL PRIVILEGES ON DATABASE vteuthis_test TO temporal;
