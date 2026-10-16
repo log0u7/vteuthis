@@ -30,7 +30,7 @@ def test_no_live_dsn_in_test_sources():
 
 
 def test_sensitive_paths_are_gitignored():
-    for rel in (".env", "events.csv", "experiments"):
+    for rel in (".env", "events.csv", "experiments/"):
         result = subprocess.run(
             ["git", "check-ignore", "-q", rel], cwd=ROOT, capture_output=True
         )
