@@ -24,6 +24,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("count", nargs="?", type=int, default=1, help="spawn: agent count")
     parser.add_argument("--all-agents", action="store_true", help="status: per-agent rows")
     parser.add_argument("--csv", action="store_true", help="export: also write events.csv")
+    parser.add_argument("--force", action="store_true", help="spawn: wipe a non-empty ledger")
     args = parser.parse_args(argv)
 
     cfg = Config.load()
@@ -38,7 +39,7 @@ def main(argv: list[str] | None = None) -> int:
         "run": lambda: cmd_run(cfg),
         "tick": lambda: cmd_tick(cfg),
         "status": lambda: cmd_status(cfg, all_agents=args.all_agents),
-        "spawn": lambda: cmd_spawn(cfg, n=max(args.count, 1)),
+        "spawn": lambda: cmd_spawn(cfg, n=max(args.count, 1), force=args.force),
         "export": lambda: cmd_export(cfg, write_csv=args.csv),
     }
     return asyncio.run(dispatch[args.command]()) or 0
@@ -138,14 +139,20 @@ async def cmd_tick(cfg: Config) -> None:
     print(json.dumps(out["result"], indent=2, default=str))
 
 
-async def cmd_spawn(cfg: Config, n: int) -> None:
-    """Create/reset the population: n agents, honnet treasury partition."""
+async def cmd_spawn(cfg: Config, n: int, force: bool = False) -> None:
+    """Create/reset the population: n agents, honest treasury partition.
+    Destructive: refuses to wipe a non-empty ledger unless --force is passed."""
     from vteuthis import accounting
     from vteuthis.population import partition
 
+    n = max(1, min(n, 50))
     ledger = await accounting.Ledger.connect(cfg.db_dsn)
     try:
         await ledger.setup()
+        existing = await ledger.events(limit=1)
+        if existing and not force:
+            print("ledger not empty; pass --force to wipe it", file=sys.stderr)
+            raise SystemExit(1)
         ids = [f"a{i}" for i in range(n)]
         slices = partition(cfg.initial_usd, ids)
         await ledger.clear()

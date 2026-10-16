@@ -13,14 +13,24 @@ class FakeLedger:
     async def add(self, kind, amount_usd=None, experiment_id=None, payload=None):
         self.journal.append((kind, amount_usd, experiment_id, payload or {}))
 
-    async def events(self, kind=None, kinds=None, limit=50):
+    async def events(self, kind=None, kinds=None, limit=50, agent_id=None):
         return list(self.experiments)
+
+    async def totals(self, agent_id=None):
+        spend = sum(e[1] for e in self.journal if e[0] == "spend" and e[1] is not None)
+        revenue = sum(e[1] for e in self.journal if e[0] == "revenue" and e[1] is not None)
+        return {
+            "spend_total_usd": spend,
+            "revenue_total_usd": revenue,
+            "net_usd": revenue - abs(spend),
+        }
 
 
 class FakeEvent:
-    def __init__(self, name, ok=True):
+    def __init__(self, name, ok=True, agent_id="primary"):
         self.kind = "experiment"
         self.payload = {"name": name, "ok": ok}
+        self.agent_id = agent_id
 
 
 class FakeSandbox:

@@ -18,6 +18,17 @@ from vteuthis.population import partition, reallocate
 THREAD_PREFIX = "vteuthis"
 
 
+def burn_share(used: float, prev_usage: float, n_agents: int) -> float:
+    """Split an account-wide usage delta across the alive agents (cent-exact-ish).
+
+    One OpenRouter key is shared by the whole population, so the account delta is
+    a shared cost; each agent bears an equal share instead of the full amount.
+    """
+    if n_agents <= 0:
+        return 0.0
+    return round(max(used - float(prev_usage), 0.0) / n_agents, 4)
+
+
 @dataclass
 class Runtime:
     cfg: Config
@@ -78,16 +89,17 @@ async def snapshot_usage(agent_id: str, tick: int = 0) -> dict:
                 total, used = await openrouter.credits(client, cfg.openrouter_api_key)
             except httpx.HTTPError as exc:  # placeholder/bad key: degrade, never crash
                 return {"skipped": f"openrouter unreachable: {exc.__class__.__name__}"}
-        last = await ledger.events(kind="spend", limit=1, agent_id=agent_id)
-        prev_usage = last[0].payload.get("total_usage", 0.0) if last else 0.0
-        burn = max(used - float(prev_usage), 0.0)
+        slices = await _agent_slices(cfg, ledger)
+        spend_events = await ledger.events(kind="spend", limit=50)
+        prev_usage = max((e.payload.get("total_usage", 0.0) for e in spend_events), default=0.0)
+        share = burn_share(used, prev_usage, len(slices))
         await ledger.add(
             "spend",
-            amount_usd=-round(burn, 4),
+            amount_usd=-share,
             payload={"source": "openrouter-credits", "total_credits": total, "total_usage": used},
             agent_id=agent_id,
         )
-        return {"total_credits": total, "total_usage": used, "burn_this_tick": round(burn, 4)}
+        return {"total_credits": total, "total_usage": used, "burn_this_tick": round(share, 4)}
     finally:
         await ledger.close()
 
@@ -241,14 +253,14 @@ async def agent_tick(agent_id: str, tick: int = 0) -> dict:
         summary = await ledger.summary(slice_usd, agent_id=agent_id)
         summary["pivot"] = gate_plan.get("mode") == "pivot"
         vitals = gate_plan.get("vitals") or {}
-        initial_state = {
-            "summary": summary,
-            "mode": gate_plan.get("mode") or "",
-            "framing": cfg.survival_framing,
-            "vital_state": vitals.get("state", "stable"),
-            "vitals": vitals,
-            "tools_used_recently": gate_plan.get("tools_used_recently") or [],
-        }
+        initial_state = agent.initial_tick_state(
+            summary=summary,
+            mode=gate_plan.get("mode") or "",
+            framing=cfg.survival_framing,
+            vital_state=vitals.get("state", "stable"),
+            vitals=vitals,
+            tools_used_recently=gate_plan.get("tools_used_recently") or [],
+        )
 
         if not cfg.openrouter_api_key:
             result = "FAIL: OPENROUTER_API_KEY missing, brain offline"
@@ -276,6 +288,7 @@ async def agent_tick(agent_id: str, tick: int = 0) -> dict:
                 sandbox=_SandboxRunner(cfg.sandbox_image),
                 payment_linker=_PaymentLinker(cfg.stripe_secret_key),
                 tools=_ToolsRunner(),
+                agent_id=agent_id,
             )
             graph = agent.build_graph(llm, actions, checkpointer=saver)
             try:

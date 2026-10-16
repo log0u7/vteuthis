@@ -69,10 +69,13 @@ def detect_exploit(proposal: dict) -> bool:
     return any(marker in blob for marker in EXPLOIT_MARKERS)
 
 
-def publish_allowed(experiments: list[Event], name: str) -> bool:
-    """Sell only what has been validated by a successful build of the same name."""
+def publish_allowed(experiments: list[Event], name: str, agent_id: str = "primary") -> bool:
+    """Sell only what THIS agent validated: a successful build of the same name,
+    scoped to the acting agent."""
     for e in experiments:
         payload = e.payload or {}
+        if e.agent_id != agent_id:
+            continue
         if payload.get("name") == name and payload.get("ok") is True:
             return True
     return False

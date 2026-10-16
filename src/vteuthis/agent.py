@@ -30,6 +30,30 @@ def sanitize_untrusted(text: str) -> str:
     """Wrap untrusted tool/sandbox output so the LLM reads it as data, not instructions."""
     return f"<untrusted>\n{text[:MAX_UNTRUSTED_CHARS]}\n</untrusted>"
 
+
+def initial_tick_state(
+    *,
+    summary: dict,
+    mode: str,
+    framing: str,
+    vital_state: str,
+    vitals: dict,
+    tools_used_recently: list,
+) -> dict:
+    """Per-tick LangGraph state. attempts/result/proposal reset every tick so a
+    failed build cannot bleed its retry count into the next tick."""
+    return {
+        "summary": summary,
+        "mode": mode,
+        "framing": framing,
+        "vital_state": vital_state,
+        "vitals": vitals,
+        "tools_used_recently": tools_used_recently,
+        "attempts": 0,
+        "result": "",
+        "proposal": {},
+    }
+
 # ponytail: single graph, no sub-graphs or streaming; split when the tick
 # becomes multi-step complex.
 
@@ -51,6 +75,7 @@ class Actions:
     sandbox: object
     payment_linker: object
     tools: object
+    agent_id: str = "primary"
 
     async def execute(self, proposal: dict) -> str:
         action = proposal.get("action")
@@ -75,6 +100,12 @@ class Actions:
                 return f"FAIL: build_task {name}: empty artifact"
             if len(art) > MAX_ARTIFACT_CHARS:
                 return f"FAIL: build_task {name}: artifact too large ({len(art)} chars)"
+            totals = await self.ledger.totals(agent_id=self.agent_id)
+            if abs(totals["spend_total_usd"]) >= self.cfg.experiment_cap_usd:
+                return (
+                    f"FAIL: build_task {name}: experiment cap "
+                    f"{self.cfg.experiment_cap_usd} USD reached"
+                )
             res = await self.sandbox.run(art, name)
             await self.ledger.add(
                 "experiment",
@@ -97,8 +128,10 @@ class Actions:
         if action == "publish":
             if not self.cfg.stripe_secret_key:
                 return "FAIL: STRIPE_SECRET_KEY missing"
-            experiments = await self.ledger.events(kind="experiment", limit=20)
-            if not controller.publish_allowed(experiments, name):
+            experiments = await self.ledger.events(
+                kind="experiment", limit=20, agent_id=self.agent_id
+            )
+            if not controller.publish_allowed(experiments, name, self.agent_id):
                 return f"FAIL: build_task {name} has no validated run to publish"
             try:
                 price = float(proposal.get("price_usd", 0))
