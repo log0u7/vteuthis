@@ -1,19 +1,30 @@
+import pytest
 
-from vteuthis.activities import burn_share
+from vteuthis.activities import init_runtime, snapshot_usage
+from vteuthis.config import Config
 
-
-def test_burn_share_splits_evenly():
-    assert burn_share(1.0, 0.0, 3) == 0.3333
-    assert burn_share(1.0, 0.0, 2) == 0.5
-
-
-def test_burn_share_clamps_negative_delta():
-    assert burn_share(0.5, 1.0, 3) == 0.0
+TEST_DSN = "postgresql://temporal:temporal@localhost:5432/vteuthis_test"
 
 
-def test_burn_share_no_agents_is_zero():
-    assert burn_share(1.0, 0.0, 0) == 0.0
+@pytest.mark.db
+async def test_account_burn_recorded_once_and_distributed(db_ledger, monkeypatch):
+    cfg = Config(initial_usd=100.0, floor_usd=5.0, db_dsn=TEST_DSN, openrouter_api_key="x")
+    init_runtime(cfg)
+    await db_ledger.add(
+        "population", payload={"slices": {"a0": 50.0, "a1": 50.0}, "dead": [], "generation": 0}
+    )
 
+    async def fake_credits(client, key):
+        return (100.0, 1.0)  # account delta of 1.0 this tick
 
-def test_burn_share_single_agent_bears_all():
-    assert burn_share(2.0, 0.0, 1) == 2.0
+    monkeypatch.setattr("vteuthis.openrouter.credits", fake_credits)
+
+    await snapshot_usage("account", 0)
+
+    spends = await db_ledger.events(kind="spend", limit=10)
+    assert len(spends) == 1
+    assert spends[0].agent_id == "account"
+    assert abs(spends[0].amount_usd - (-1.0)) < 0.01
+
+    s0 = await db_ledger.summary(50.0, agent_id="a0")
+    assert abs(s0["treasury_usd"] - 49.5) < 0.01

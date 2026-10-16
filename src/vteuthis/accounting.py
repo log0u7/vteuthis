@@ -129,6 +129,18 @@ class Ledger:
         (total,) = await cur.fetchone()
         return initial_usd + float(total or 0)
 
+    async def slices(self) -> dict:
+        pop = await self.events(kind="population", limit=1)
+        return pop[0].payload.get("slices", {}) if pop else {}
+
+    async def account_spend(self) -> float:
+        cur = await self._conn.execute(
+            "SELECT COALESCE(SUM(amount_usd), 0) FROM events"
+            " WHERE kind = 'spend' AND agent_id = 'account'"
+        )
+        (total,) = await cur.fetchone()
+        return float(total or 0)
+
     async def totals(self, agent_id: str | None = None) -> dict:
         sql = (
             "SELECT"
@@ -151,8 +163,13 @@ class Ledger:
     async def summary(self, initial_usd: float, agent_id: str | None = None) -> dict:
         totals = await self.totals(agent_id)
         tail = await self.events(limit=10, agent_id=agent_id)
+        treasury = round(await self.treasury(initial_usd, agent_id), 4)
+        if agent_id is not None:
+            n = len(await self.slices())
+            if n:
+                treasury = round(treasury + await self.account_spend() / n, 4)
         return {
-            "treasury_usd": round(await self.treasury(initial_usd, agent_id), 4),
+            "treasury_usd": treasury,
             **totals,
             "recent_events": [
                 {

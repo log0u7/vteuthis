@@ -18,17 +18,6 @@ from vteuthis.population import partition, reallocate
 THREAD_PREFIX = "vteuthis"
 
 
-def burn_share(used: float, prev_usage: float, n_agents: int) -> float:
-    """Split an account-wide usage delta across the alive agents (cent-exact-ish).
-
-    One OpenRouter key is shared by the whole population, so the account delta is
-    a shared cost; each agent bears an equal share instead of the full amount.
-    """
-    if n_agents <= 0:
-        return 0.0
-    return round(max(used - float(prev_usage), 0.0) / n_agents, 4)
-
-
 @dataclass
 class Runtime:
     cfg: Config
@@ -89,17 +78,16 @@ async def snapshot_usage(agent_id: str, tick: int = 0) -> dict:
                 total, used = await openrouter.credits(client, cfg.openrouter_api_key)
             except httpx.HTTPError as exc:  # placeholder/bad key: degrade, never crash
                 return {"skipped": f"openrouter unreachable: {exc.__class__.__name__}"}
-        slices = await _agent_slices(cfg, ledger)
         spend_events = await ledger.events(kind="spend", limit=50)
         prev_usage = max((e.payload.get("total_usage", 0.0) for e in spend_events), default=0.0)
-        share = burn_share(used, prev_usage, len(slices))
+        burn = max(used - float(prev_usage), 0.0)
         await ledger.add(
             "spend",
-            amount_usd=-share,
+            amount_usd=-round(burn, 4),
             payload={"source": "openrouter-credits", "total_credits": total, "total_usage": used},
             agent_id=agent_id,
         )
-        return {"total_credits": total, "total_usage": used, "burn_this_tick": round(share, 4)}
+        return {"total_credits": total, "total_usage": used, "burn_this_tick": round(burn, 4)}
     finally:
         await ledger.close()
 
@@ -237,19 +225,23 @@ class _ToolsRunner:
 
 
 @activity.defn(name="agent_tick")
-async def agent_tick(agent_id: str, tick: int = 0) -> dict:
-    """One LangGraph iteration. Money-gated by the workflow, never by the LLM."""
+async def agent_tick(agent_id: str, tick: int = 0, gate_plan: dict | None = None) -> dict:
+    """One LangGraph iteration. Money-gated by the workflow, never by the LLM.
+
+    The workflow already ran controller_gate; reuse its plan so the gate is
+    evaluated exactly once per tick (no duplicate decision/death events)."""
     cfg = rt().cfg
     from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
     from psycopg_pool import AsyncConnectionPool
 
     from vteuthis import agent
 
+    if gate_plan is None:
+        gate_plan = await controller_gate(agent_id, tick)
     ledger = await accounting.Ledger.connect(cfg.db_dsn)
     try:
         slices = await _agent_slices(cfg, ledger)
         slice_usd = slices.get(agent_id, 0.0)
-        gate_plan = await controller_gate(agent_id, tick)
         summary = await ledger.summary(slice_usd, agent_id=agent_id)
         summary["pivot"] = gate_plan.get("mode") == "pivot"
         vitals = gate_plan.get("vitals") or {}
