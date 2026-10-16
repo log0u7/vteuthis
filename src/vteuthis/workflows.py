@@ -47,12 +47,15 @@ class HeartbeatWorkflow:
                 out["agents"][agent_id] = child
             except Exception as exc:  # one sick agent must not kill the population
                 out["agents"][agent_id] = {"error": f"{exc.__class__.__name__}: {exc}"}
-        release = await workflow.execute_activity(
-            "sweep_dead",
-            tick,
-            start_to_close_timeout=timedelta(seconds=30),
-            retry_policy=RETRY,
-        )
+        try:
+            release = await workflow.execute_activity(
+                "sweep_dead",
+                tick,
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=RETRY,
+            )
+        except Exception as exc:  # a failed sweep must not fail the whole tick
+            release = {"error": f"{exc.__class__.__name__}: {exc}"}
         out["released"] = release
         return out
 

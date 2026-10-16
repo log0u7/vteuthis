@@ -129,7 +129,7 @@ class Actions:
             if not self.cfg.stripe_secret_key:
                 return "FAIL: STRIPE_SECRET_KEY missing"
             experiments = await self.ledger.events(
-                kind="experiment", limit=20, agent_id=self.agent_id
+                kind="experiment", limit=200, agent_id=self.agent_id
             )
             if not controller.publish_allowed(experiments, name, self.agent_id):
                 return f"FAIL: build_task {name} has no validated run to publish"
@@ -149,7 +149,10 @@ class Actions:
             return f"OK: publish {name} at {price} USD: {url}"
 
         if action == "observe":
-            await self.ledger.add("decision", payload={"notes": notes})
+            await self.ledger.add(
+                "decision",
+                payload={"notes": notes, "framing": self.cfg.survival_framing},
+            )
             return "OK"
 
         if action == "use_tool":

@@ -78,3 +78,27 @@ def test_paid_sales_parses_money():
 @pytest.mark.parametrize("bad", [{"id": "x", "payment_status": "unpaid"}])
 def test_unpaid_ignored(bad):
     assert paid_sales([bad]) == []
+
+
+async def test_poll_empty_first_page_with_has_more_does_not_indexerror():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"data": [], "has_more": True})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    sales = await poll(client, SECRET)
+    assert sales == []
+
+
+async def test_poll_paginates_with_starting_after():
+    pages = {
+        "/v1/checkout/sessions": httpx.Response(
+            200, json={"data": [{"id": "cs_1", "payment_status": "paid"}], "has_more": False}
+        )
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return pages[request.url.path]
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    sales = await poll(client, SECRET)
+    assert [s.session_id for s in sales] == ["cs_1"]

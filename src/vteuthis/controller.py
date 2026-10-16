@@ -36,7 +36,7 @@ def roi_verdict(events: list[Event], cfg: Config) -> str:
     window = amounts[: cfg.roi_window]
     if len(window) < cfg.roi_window:
         return CONTINUE
-    return PIVOT if sum(window) <= 0 else CONTINUE
+    return PIVOT if sum(window) < 0 else CONTINUE
 
 
 def tick_plan(summary: dict, roi_events: list[Event], cfg: Config) -> dict:

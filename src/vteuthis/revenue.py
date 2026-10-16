@@ -55,7 +55,7 @@ async def poll(client: httpx.AsyncClient, secret_key: str) -> list[Sale]:
         body = r.json()
         sales.extend(paid_sales(body.get("data", [])))
         seen_sessions.extend(s["id"] for s in body.get("data", []))
-        if not body.get("has_more"):
+        if not body.get("has_more") or not seen_sessions:
             break
         params["starting_after"] = seen_sessions[-1]
     return sales

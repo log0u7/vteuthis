@@ -32,3 +32,28 @@ def test_reallocate_all_dead_empties_population():
 def test_reallocate_no_dead_is_identity():
     before = {"a": 10.0, "b": 10.0}
     assert reallocate(before, dead=[]) == before
+
+
+def test_partition_negative_total():
+    assert partition(-10.0, ["a", "b"]) == {"a": -5.0, "b": -5.0}
+
+
+def test_partition_zero_total():
+    assert partition(0.0, ["a", "b"]) == {"a": 0.0, "b": 0.0}
+
+
+def test_partition_duplicate_ids_collapse():
+    # duplicate ids collapse in the dict (last wins); spawn never emits them
+    assert partition(100.0, ["a", "a"]) == {"a": 50.0}
+
+
+def test_partition_single_agent():
+    assert partition(100.0, ["a"]) == {"a": 100.0}
+
+
+def test_reallocate_negative_dead_balance_drains_survivors():
+    assert reallocate({"a": 5.0, "b": -3.0}, dead=["b"]) == {"a": 2.0}
+
+
+def test_reallocate_dead_not_in_slices_is_noop():
+    assert reallocate({"a": 10.0}, dead=["zz"]) == {"a": 10.0}

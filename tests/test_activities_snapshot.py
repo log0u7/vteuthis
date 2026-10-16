@@ -28,3 +28,18 @@ async def test_account_burn_recorded_once_and_distributed(db_ledger, monkeypatch
 
     s0 = await db_ledger.summary(50.0, agent_id="a0")
     assert abs(s0["treasury_usd"] - 49.5) < 0.01
+
+
+@pytest.mark.db
+async def test_snapshot_usage_malformed_200_does_not_crash(db_ledger, monkeypatch):
+    cfg = Config(initial_usd=100.0, floor_usd=5.0, db_dsn=TEST_DSN, openrouter_api_key="x")
+    init_runtime(cfg)
+
+    async def bad_credits(client, key):
+        raise KeyError("data")
+
+    monkeypatch.setattr("vteuthis.openrouter.credits", bad_credits)
+
+    out = await snapshot_usage("a0", 0)
+    assert isinstance(out, dict)
+    assert "skipped" in out or "error" in out

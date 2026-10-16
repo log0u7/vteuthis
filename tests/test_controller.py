@@ -117,3 +117,30 @@ def test_publish_allowed_only_after_validated_build():
     assert publish_allowed([ok_exp], "other") is False
     assert publish_allowed([bad_exp], "tool-y") is False
     assert publish_allowed([], "tool-x") is False
+
+
+def test_roi_break_even_is_continue_not_pivot():
+    from vteuthis.accounting import Event
+
+    cfg = Config(initial_usd=100.0, floor_usd=5.0, roi_window=2)
+    window = [
+        Event(id=1, kind="spend", amount_usd=-1.0),
+        Event(id=2, kind="revenue", amount_usd=1.0),
+    ]
+    assert roi_verdict(window, cfg=cfg) == "continue"
+    zeros = [Event(id=i, kind="spend", amount_usd=0.0) for i in range(2)]
+    assert roi_verdict(zeros, cfg=cfg) == "continue"
+
+
+def test_publish_allowed_beyond_twenty_experiments():
+    from vteuthis.accounting import Event
+    from vteuthis.controller import publish_allowed
+
+    events = [
+        Event(id=i, kind="experiment", payload={"name": f"x{i}", "ok": False})
+        for i in range(24)
+    ]
+    events.append(
+        Event(id=99, kind="experiment", payload={"name": "real", "ok": True}, agent_id="primary")
+    )
+    assert publish_allowed(events, "real", "primary") is True

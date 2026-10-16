@@ -76,7 +76,7 @@ async def snapshot_usage(agent_id: str, tick: int = 0) -> dict:
         async with httpx.AsyncClient() as client:
             try:
                 total, used = await openrouter.credits(client, cfg.openrouter_api_key)
-            except httpx.HTTPError as exc:  # placeholder/bad key: degrade, never crash
+            except (httpx.HTTPError, ValueError, KeyError) as exc:
                 return {"skipped": f"openrouter unreachable: {exc.__class__.__name__}"}
         spend_events = await ledger.events(kind="spend", limit=50)
         prev_usage = max((e.payload.get("total_usage", 0.0) for e in spend_events), default=0.0)
@@ -106,7 +106,7 @@ async def poll_revenue(agent_id: str, tick: int = 0) -> dict:
         async with httpx.AsyncClient() as client:
             try:
                 sales = await revenue.poll(client, cfg.stripe_secret_key)
-            except httpx.HTTPError as exc:  # placeholder/bad key: degrade, never crash
+            except (httpx.HTTPError, ValueError, KeyError) as exc:
                 return {"skipped": f"stripe unreachable: {exc.__class__.__name__}", "new_sales": 0}
         fresh = revenue.filter_new(sales, {k for k in known if k})
         for s in fresh:
@@ -177,11 +177,16 @@ async def controller_gate(agent_id: str, tick: int = 0) -> dict:
         actions = [(e.payload or {}).get("action") for e in recent]
         actions = [a for a in actions if a]
         plan["tools_used_recently"] = actions
-        if controller.idle_drift(actions):
+        if controller.idle_drift(actions) and plan.get("mode") != "pivot":
             plan["mode"] = "must_build"
         await ledger.add(
             "decision",
-            payload={"gate": plan["gate"], "mode": plan["mode"], "vitals": vitals},
+            payload={
+                "gate": plan["gate"],
+                "mode": plan["mode"],
+                "vitals": vitals,
+                "framing": cfg.survival_framing,
+            },
             agent_id=agent_id,
         )
         return plan
@@ -288,8 +293,8 @@ async def agent_tick(agent_id: str, tick: int = 0, gate_plan: dict | None = None
                     initial_state,
                     config={"configurable": {"thread_id": f"{THREAD_PREFIX}-{agent_id}"}},
                 )
-            except httpx.HTTPStatusError as exc:  # bad key etc: deterministic, do not retry
-                result = f"FAIL: provider rejected the call ({exc.response.status_code})"
+            except (httpx.HTTPError, ValueError, KeyError) as exc:
+                result = f"FAIL: provider rejected the call ({exc.__class__.__name__})"
                 await ledger.add(
                     "decision", payload={"tick_result": result, "vitals": vitals}, agent_id=agent_id
                 )
