@@ -11,13 +11,15 @@ Scope: this repository only.
 ## Commands
 
 ```bash
-.venv/bin/python -m pytest tests/ -q   # full suite; accounting tests use vteuthis_test DB
+.venv/bin/python -m pytest tests/ -q   # full suite; db tests use vteuthis_test DB
 .venv/bin/ruff check src tests          # must pass
 .venv/bin/python -m vteuthis.cli status # quick live read
 .venv/bin/python -m vteuthis.cli status --all-agents
 .venv/bin/python -m vteuthis.cli tick   # manual population tick (worker must be alive)
-.venv/bin/python -m vteuthis.cli spawn 3 # (re)create the population, WIPES the ledger
+.venv/bin/python -m vteuthis.cli spawn 3 # (re)create the population
+.venv/bin/python -m vteuthis.cli spawn 3 --force  # wipe a non-empty ledger first
 .venv/bin/python -m vteuthis.cli export --csv
+bash scripts/smoke.sh                  # local e2e smoke (fake OpenRouter, no real keys)
 ```
 
 ## Runtime facts learned the hard way
@@ -31,6 +33,15 @@ Scope: this repository only.
 - Blocking CLI calls always get a bounded timeout (`run_tick` terminates on timeout).
 - psycopg async connections MUST be closed (`try/finally`): a leaked one wedges the
   next test's event loop (2026-10-15 hang).
+- The shared OpenRouter burn is recorded ONCE as `agent_id=account` (parent workflow)
+  and distributed across agents in `Ledger.summary`; never write it per-agent (N x).
+- `controller_gate` is evaluated ONCE per tick in the workflow; `agent_tick` receives
+  the plan as `gate_plan` and must not re-run it.
+- The Temporal Python test server (`WorkflowEnvironment`) HANGS against this stack
+  (worker + postgres pool deadlock). Do not add W-layer tests; cover workflow wiring
+  with the local `scripts/smoke.sh` instead.
+- `Config.load` merges `.env` UNDER the real environment (runtime wins); tests
+  neutralize `.env` via conftest.
 
 ## Hard rules
 

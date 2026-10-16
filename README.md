@@ -30,14 +30,17 @@ net-negative experiments it is forced to pivot strategy.
 ```
 Temporal Schedule (every 30 min)
   └── HeartbeatWorkflow
-        ├── activity snapshot_usage   -> OpenRouter /credits, ledger spend event
-        ├── activity poll_revenue     -> Stripe checkout sessions, ledger revenue
-        ├── activity controller_gate  -> deterministic rules: floor, cap, ROI pivot
-        └── activity agent_tick       -> one LangGraph iteration (decide -> act -> evaluate)
-              ├── build_task  -> standalone python script executed in a Docker sandbox
-              │                  (non-root, no network, CPU/RAM/time limits)
-              ├── publish     -> Stripe product+price+payment link (controller-held key)
-              └── observe     -> record analysis only
+        ├── activity read_population  -> latest slices (or bootstrap "primary")
+        ├── activity snapshot_usage  -> OpenRouter /credits ONCE, ledger spend as agent_id=account
+        ├── child AgentWorkflow per alive agent
+        │     ├── activity poll_revenue    -> Stripe checkout sessions, ledger revenue
+        │     ├── activity controller_gate -> deterministic rules: floor, cap, ROI pivot
+        │     └── activity agent_tick      -> one LangGraph iteration (decide -> act -> evaluate)
+        │           ├── build_task -> standalone python script in a Docker sandbox
+        │           │                  (non-root, no network, cap-drop, CPU/RAM/time limits)
+        │           ├── publish    -> Stripe product+price+payment link (controller-held key)
+        │           └── observe    -> record analysis only
+        └── activity sweep_dead    -> redistribute dead agents' treasury to survivors
 PostgreSQL: single event ledger + LangGraph checkpoints
 ```
 
@@ -65,6 +68,7 @@ Prerequisites (one-time, human):
 ```bash
 .venv/bin/python -m vteuthis.cli init    # schema + pull sandbox image + temporal schedule
 .venv/bin/python -m vteuthis.cli spawn 3 # population: 3 agents, $33.33 each (or 1)
+.venv/bin/python -m vteuthis.cli spawn 3 --force  # wipe a non-empty ledger first
 .venv/bin/python -m vteuthis.cli run     # the worker (keep alive)
 .venv/bin/python -m vteuthis.cli tick    # manual population cycle (same as scheduled)
 .venv/bin/python -m vteuthis.cli status  # ledger summary
@@ -73,6 +77,21 @@ Prerequisites (one-time, human):
 ```
 
 Watch it drift at http://localhost:8080 (Temporal UI).
+
+## Testing and CI
+
+CI (GitHub Actions, `.github/workflows/ci.yml`) runs four jobs: `lint` (ruff),
+`unit`, `integration` (postgres service container, `vteuthis_test`), and `sandbox`
+(native docker). No secrets and no smoke, so a green run guarantees the decisions,
+the money math, and the wiring are correct. The suite never touches the live
+ledger: `tests/conftest.py` forces `vteuthis_test` before any import.
+
+A local end-to-end smoke (real worker + tick + ledger, LLM pointed at a key-free
+fake OpenRouter, no real keys, no spend):
+
+```bash
+bash scripts/smoke.sh    # requires the compose stack up and a worker running
+```
 
 ## Survival mechanics (the thesis core)
 
@@ -97,10 +116,12 @@ OpenRouter account credits are USD.
 
 - treasury = OpenRouter credits remaining (from `/api/v1/credits`), ledger fallback
 - gate `halt` when treasury <= floor: no more agent ticks, schedule stays but flashes no-op
-- each experiment burn is capped (default 2 USD), price proposals are clamped 1..50 USD
-- after one full negative ROI window the agent must pivot (`mode=PIVOT` in its prompt)
+- the shared account burn is recorded once as `agent_id=account` and distributed across
+  the alive agents in `Ledger.summary`; each agent's `build_task` is refused once its
+  own spend reaches `experiment_cap_usd` (default 2 USD), price proposals clamped 1..50 USD
+- after one full net-negative ROI window the agent must pivot (`mode=PIVOT` in its prompt)
 - agent-side artifacts run offline in a sandbox: `--network none`, read-only fs,
-  non-root, 512 MB RAM, 1 CPU, hard timeout
+  non-root, `--cap-drop ALL`, 512 MB RAM, 1 CPU, hard timeout
 
 ## Development
 

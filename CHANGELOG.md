@@ -6,12 +6,50 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Security
+
+- `tools.fetch_json` validates URLs (scheme + public IP) before streaming: SSRF to
+  localhost, private ranges, link-local, and cloud metadata is blocked.
+- Sandbox containers hardened: `--cap-drop ALL`, `no-new-privileges`, `--pids-limit`,
+  `--memory-swap`, and a `noexec/nosuid` `/tmp` tmpfs.
+- Untrusted tool/sandbox output is wrapped in `<untrusted>` delimiters and capped
+  before it can reach the agent prompt (prompt-injection channel).
+- `Config.load` no longer lets a local `.env` override the real environment.
+- `docker-compose.yml` binds postgres/temporal/ui to `127.0.0.1` (was `0.0.0.0`).
+
 ### Fixed
 
 - `publish` without a Stripe key now fails gracefully instead of crashing the activity.
 - Empty or oversized (60k chars) artifacts rejected before burning a sandbox run.
 - Payment links carry `experiment_id` metadata, so polled revenue attaches to its experiment.
 - Retrying a failed `build_task` now feeds `previous_failure` back into the agent prompt.
+- C1: the shared OpenRouter account burn was written once per agent (N x). It is now
+  recorded once as `agent_id=account` and distributed across agents in `Ledger.summary`.
+- C2: one failing child workflow no longer aborts the whole population tick.
+- C3: `controller_gate` is evaluated exactly once per tick (was twice, writing duplicate
+  decision/death events); `agent_tick` reuses the workflow's gate plan.
+- C4: LangGraph `attempts`/`result`/`proposal` reset every tick via `initial_tick_state`.
+- C5: `publish` is scoped to the acting agent (an agent can no longer sell another's build).
+- C6: `build_task` refuses once the agent's spend reaches `experiment_cap_usd`.
+- C7: `spawn` refuses to wipe a non-empty ledger without `--force` (agent count capped at 50).
+- C8: activities and child workflows carry a `RetryPolicy` and bounded timeouts.
+- H1: a failing `sweep_dead` no longer fails the whole tick.
+- H2: `roi_verdict` pivots only when the window is net-negative (break-even continues).
+- H3: `idle_drift` no longer overwrites `pivot` mode.
+- H4: the framing arm is logged on every decision.
+- H5: the publish experiment window was 20; raised to 200.
+- H6/H7: activities catch `HTTPError`/`ValueError`/`KeyError`, not just `HTTPStatusError`.
+- H8: `revenue.poll` no longer raises `IndexError` on an empty first page with `has_more`.
+
+### Added
+
+- CI (GitHub Actions): `lint`, `unit`, `integration` (postgres service), `sandbox`
+  (native docker). No secrets, no smoke. Green CI guarantees decisions + money + wiring.
+- `tests/conftest.py` forces `vteuthis_test` before any import and neutralizes the local
+  `.env`; `test_repo_hygiene.py` fails the suite if the live DB is targeted.
+- Local smoke harness: `tests/fake_openrouter.py` + `scripts/smoke.sh` run the real
+  worker + tick + ledger against a key-free fake OpenRouter (no real keys, no spend).
+- `openrouter` accepts `base_url` (`VTEUTHIS_OPENROUTER_BASE_URL`) for the fake.
 
 ### Added
 
