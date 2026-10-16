@@ -277,7 +277,10 @@ async def agent_tick(agent_id: str, tick: int = 0, gate_plan: dict | None = None
             await saver.setup()
 
             llm = openrouter.LLM(
-                api_key=cfg.openrouter_api_key, model=cfg.model, max_tokens=cfg.max_tokens
+                api_key=cfg.openrouter_api_key,
+                model=cfg.model,
+                max_tokens=cfg.max_tokens,
+                base_url=cfg.openrouter_base_url or openrouter.BASE,
             )
             actions = agent.Actions(
                 ledger=ledger,

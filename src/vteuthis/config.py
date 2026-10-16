@@ -36,6 +36,7 @@ class Config:
     db_dsn: str = "postgresql://temporal:temporal@localhost:5432/vteuthis"
     openrouter_api_key: str = ""
     stripe_secret_key: str = ""
+    openrouter_base_url: str = ""
     sandbox_image: str = "python:3.12-slim"
     tick_interval_min: int = 30
     max_tokens: int = 800
@@ -61,6 +62,7 @@ class Config:
             ),
             openrouter_api_key=env.get("OPENROUTER_API_KEY", ""),
             stripe_secret_key=env.get("STRIPE_SECRET_KEY", ""),
+            openrouter_base_url=env.get("VTEUTHIS_OPENROUTER_BASE_URL", ""),
             sandbox_image=env.get("VTEUTHIS_SANDBOX_IMAGE", "python:3.12-slim"),
             tick_interval_min=int(num("VTEUTHIS_TICK_INTERVAL_MIN", 30)),
             max_tokens=int(num("VTEUTHIS_MAX_TOKENS", 800)),

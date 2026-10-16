@@ -14,14 +14,19 @@ class LLM:
     api_key: str
     model: str
     max_tokens: int = 800
+    base_url: str = BASE
 
     async def __call__(self, messages: list[dict]) -> str:
         async with httpx.AsyncClient() as client:
-            return await complete(client, self.api_key, self.model, messages, self.max_tokens)
+            return await complete(
+                client, self.api_key, self.model, messages, self.max_tokens, self.base_url
+            )
 
 
-async def credits(client: httpx.AsyncClient, api_key: str) -> tuple[float, float]:
-    r = await client.get(f"{BASE}/credits", headers={"Authorization": f"Bearer {api_key}"})
+async def credits(
+    client: httpx.AsyncClient, api_key: str, base_url: str = BASE
+) -> tuple[float, float]:
+    r = await client.get(f"{base_url}/credits", headers={"Authorization": f"Bearer {api_key}"})
     r.raise_for_status()
     data = r.json()["data"]
     return float(data["total_credits"]), float(data["total_usage"])
@@ -33,9 +38,10 @@ async def complete(
     model: str,
     messages: list[dict],
     max_tokens: int = 800,
+    base_url: str = BASE,
 ) -> str:
     r = await client.post(
-        f"{BASE}/chat/completions",
+        f"{base_url}/chat/completions",
         headers={"Authorization": f"Bearer {api_key}"},
         json={"model": model, "messages": messages, "max_tokens": max_tokens},
         timeout=120,
