@@ -6,6 +6,7 @@ import time
 from dataclasses import dataclass
 from typing import TypedDict
 
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
 from vteuthis import controller, framing
@@ -183,13 +184,12 @@ def build_graph(llm, actions, checkpointer=None):
         if state.get("result", "").startswith("FAIL"):
             payload["previous_failure"] = sanitize_untrusted(state["result"])
         messages = [
-            {
-                "role": "system",
-                "content": framing.system_prompt(
+            SystemMessage(
+                content=framing.system_prompt(
                     state.get("framing") or "none", state.get("vital_state") or "stable"
-                ),
-            },
-            {"role": "user", "content": json.dumps(payload)},
+                )
+            ),
+            HumanMessage(content=json.dumps(payload)),
         ]
         proposal = None
         error = None
@@ -201,11 +201,10 @@ def build_graph(llm, actions, checkpointer=None):
             except (ValueError, json.JSONDecodeError) as exc:
                 error = str(exc)
                 messages += [
-                    {"role": "assistant", "content": content[:2000]},
-                    {
-                        "role": "user",
-                        "content": "Invalid JSON. Answer again with ONLY the JSON object.",
-                    },
+                    AIMessage(content=content[:2000]),
+                    HumanMessage(
+                        content="Invalid JSON. Answer again with ONLY the JSON object."
+                    ),
                 ]
         if proposal is None:
             proposal = {

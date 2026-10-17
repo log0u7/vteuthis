@@ -42,6 +42,15 @@ bash scripts/smoke.sh                  # local e2e smoke (fake OpenRouter, no re
   with the local `scripts/smoke.sh` instead.
 - `Config.load` merges `.env` UNDER the real environment (runtime wins); tests
   neutralize `.env` via conftest.
+- The agent graph passes langchain-core messages (`SystemMessage`/`HumanMessage`/
+  `AIMessage`); `LLM.__call__` converts them to OpenAI dicts
+  (`convert_to_openai_messages`), dicts pass through. Test fakes still capture
+  the message objects, not dicts (`m.content`).
+- The framing prompt's tool docs are generated from the `@tool` specs in `tools.py`
+  (`convert_to_openai_tool`); keep spec names in sync with the `TOOLS` registry
+  (drift test in `test_tools.py`).
+- CI pins `actions/*@v7` (Node 24) + `ubuntu-24.04`; job annotations must stay
+  empty (Node 20 deprecation and Ubuntu 26 migration notices).
 
 ## Hard rules
 

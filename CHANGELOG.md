@@ -50,9 +50,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Local smoke harness: `tests/fake_openrouter.py` + `scripts/smoke.sh` run the real
   worker + tick + ledger against a key-free fake OpenRouter (no real keys, no spend).
 - `openrouter` accepts `base_url` (`VTEUTHIS_OPENROUTER_BASE_URL`) for the fake.
-
-### Added
-
 - Worker logging: tick results visible in worker output; `activity.logger` per tick.
 - `vteuthis status` shows live OpenRouter treasury when the key is available.
 - `vteuthis tick` prints a hint when no worker is running.
@@ -60,6 +57,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - Removed unused `controller.propose_budget` (cap enforced at publish/price level).
+- CI actions pinned to v7 (`actions/checkout@v7`, `actions/setup-python@v7`, Node 24)
+  and runners pinned to `ubuntu-24.04`; the Node 20 deprecation and Ubuntu 26
+  migration annotations on every job are gone.
+- The agent graph speaks langchain-core messages (`SystemMessage`/`HumanMessage`/
+  `AIMessage`); `openrouter.LLM` converts them to OpenAI dicts at the boundary via
+  `convert_to_openai_messages`. No new dependency (langchain-core ships with langgraph).
+- Tool documentation in the system prompt is generated from the `@tool` specs in
+  `tools.py` via `convert_to_openai_tool`, so the prompt cannot drift from the registry.
+
+### Fixed
+
+- `docs/markets-note.md` listed dependencies the code never had (`langchain-openai`,
+  `typer`, `docker`, `pydantic`); the layout sketch now matches the implementation.
 
 ### Added (round 1)
 

@@ -1,7 +1,14 @@
 import httpx
 import pytest
 
-from vteuthis.tools import fetch_json, tool_names, validate_tool_url, web_search
+from vteuthis.tools import (
+    fetch_json,
+    tool_names,
+    tool_schemas,
+    tools_prompt_block,
+    validate_tool_url,
+    web_search,
+)
 
 DDG_HTML = """
 <html><body>
@@ -13,6 +20,21 @@ DDG_HTML = """
 
 def test_tool_names_lists_both():
     assert tool_names() == ["fetch_json", "web_search"]
+
+
+def test_tool_schemas_match_registry():
+    assert [s["function"]["name"] for s in tool_schemas()] == tool_names()
+
+
+def test_tools_prompt_block_documents_each_tool():
+    block = tools_prompt_block()
+    for name in tool_names():
+        assert name in block
+    assert "query" in block
+
+
+def test_tools_prompt_block_uses_docstring_as_description():
+    assert "DuckDuckGo" in tools_prompt_block()
 
 
 async def test_web_search_parses_results():

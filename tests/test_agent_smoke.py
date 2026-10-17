@@ -168,7 +168,7 @@ async def test_pivot_mode_reaches_prompt():
         make_actions(ledger, sandbox),
         summary_extra={"pivot": True},
     )
-    prompt = json.dumps(FakeLLM.last_messages)
+    prompt = json.dumps([m.content for m in FakeLLM.last_messages])
     assert "pivot" in prompt.lower()
     assert state["result"] == "OK"
 
@@ -238,7 +238,7 @@ async def test_retry_after_build_failure_includes_previous_failure():
 
     async def llm(messages, cfg=None):
         call_count["n"] += 1
-        captured_payloads.append(messages[-1]["content"])
+        captured_payloads.append(messages[-1].content)
         return json.dumps({**PROPOSAL_BUILD, "artifact": "raise SystemExit()"})
 
     compiled = build_graph(llm, acts)

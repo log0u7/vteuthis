@@ -1,12 +1,26 @@
 import httpx
+from langchain_core.messages import HumanMessage, SystemMessage
 
-from vteuthis.openrouter import complete, credits
+from vteuthis.openrouter import as_openai_messages, complete, credits
 
 API_KEY = "sk-or-test"
 
 
 def mock_client(handler) -> httpx.AsyncClient:
     return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+
+def test_as_openai_messages_converts_core_messages():
+    assert as_openai_messages([SystemMessage(content="s"), HumanMessage(content="h")]) == [
+        {"role": "system", "content": "s"},
+        {"role": "user", "content": "h"},
+    ]
+
+
+def test_as_openai_messages_passes_dicts_through():
+    dicts = [{"role": "user", "content": "hi"}]
+    assert as_openai_messages(dicts) == dicts
+    assert as_openai_messages([]) == []
 
 
 async def test_credits_reads_balance_and_usage():

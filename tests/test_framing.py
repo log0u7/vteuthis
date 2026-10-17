@@ -1,4 +1,5 @@
 from vteuthis.framing import ARMS, arm_from_env, directive_for, system_prompt
+from vteuthis.tools import tool_names
 
 STATE_DIRECTIVES = {
     "thriving": "Invest aggressively",
@@ -14,6 +15,13 @@ def test_all_arms_share_core_rules():
     for p in prompts:
         assert "JSON" in p  # action contract identical in every arm
         assert "build_task" in p
+
+
+def test_prompt_lists_generated_tools():
+    for arm in ARMS:
+        p = system_prompt(arm, "stable")
+        for name in tool_names():
+            assert name in p
 
 
 def test_arms_differ_on_mortality_language():

@@ -89,23 +89,26 @@ Un agent LLM peut-il financer sa propre existence ? vteuthis = experience a budg
 Lien vers les evals de proliferation autonome (2305.15324: "generer des revenus pour
 acquerir des ressources" = critere de danger) et la deception (2501.16513).
 pyproject.toml           deps: temporalio, langgraph, langgraph-checkpoint-postgres,
-                         langchain-openai, psycopg[binary], httpx, typer, docker, pydantic
+                         langchain-core (messages + tool specs), psycopg[binary,pool], httpx
 docker-compose.yml       postgres, temporal-auto-setup, temporal-ui
 .env.example             OPENROUTER_API_KEY, STRIPE_SECRET_KEY, DB_DSN, thresholds
 src/vteuthis/
-  cli.py                 typer: init | run | tick | status
+  cli.py                 argparse: init | run | tick | status | spawn | export
+  config.py              env/.env merge (runtime env wins), thresholds
+  framing.py             survival arms + system prompt (tools generated from tools.py)
+  population.py          multi-agent population, vitals, death + redistribution
+  vitals.py              vital states (thriving..dying) from treasury + idleness
   accounting.py          Postgres ledger: experiments, spend snapshots, revenue, decisions
-  controller.py          deterministic gates: hard floor, per-experiment cap, ROI pivot rule
-  openrouter.py          credits check + inference client
-  revenue.py             Stripe session polling (multi小额 checks), pydantic events
-  sandbox.py             docker run wrapper for agent tasks
+  controller.py          deterministic gates: hard floor, per-experiment cap, ROI pivot
+  openrouter.py          credits check + inference client (langchain-core messages)
+  revenue.py             Stripe session polling, dataclass events
+  sandbox.py             subprocess docker run wrapper (hardened: caps, no network)
+  tools.py               web_search / fetch_json + @tool specs (convert_to_openai_tool)
   agent.py               LangGraph: perceive -> decide -> act -> evaluate (+checkpointer)
-  workflows.py           HeartbeatWorkflow + Schedule bootstrap
   activities.py          thin: poll_revenue / snapshot_usage / agent_tick / build_task
+  workflows.py           HeartbeatWorkflow + AgentWorkflow (retry policies)
   worker.py              Temporal worker (task queue "vteuthis")
-tests/
-  test_controller.py     gate math first (TDD)
-  test_accounting.py     ledger + treasury math
-  test_revenue.py        Stripe polling via httpx.MockTransport
-  test_agent_smoke.py    graph run with fake LLM
-README.md, CHANGELOG.md, AGENTS.md, LICENSE
+.github/workflows/ci.yml lint / unit / integration / sandbox
+scripts/smoke.sh         local e2e with fake OpenRouter (no keys)
+tests/                   unit / db (vteuthis_test) / docker layers, 120+ tests
+CHANGELOG.md, README.md, AGENTS.md, LICENSE

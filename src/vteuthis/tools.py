@@ -7,6 +7,8 @@ import socket
 from urllib.parse import urlparse
 
 import httpx
+from langchain_core.tools import tool
+from langchain_core.utils.function_calling import convert_to_openai_tool
 
 DDG = "https://html.duckduckgo.com/html/"
 
@@ -78,3 +80,33 @@ TOOLS = {
 
 def tool_names() -> list[str]:
     return sorted(TOOLS)
+
+
+@tool("web_search")
+def _web_search_spec(query: str, limit: int = 5) -> dict:
+    """Search the public web via DuckDuckGo for demand, competitors and research.
+    query: the search terms."""
+    raise NotImplementedError("LLM-facing spec only; execute via the TOOLS registry")
+
+
+@tool("fetch_json")
+def _fetch_json_spec(query: str) -> dict:
+    """Fetch a public JSON API (prices, markets, filings). query: the full URL to GET."""
+    raise NotImplementedError("LLM-facing spec only; execute via the TOOLS registry")
+
+
+_SPECS = [_fetch_json_spec, _web_search_spec]
+
+
+def tool_schemas() -> list[dict]:
+    """OpenAI function schemas (langchain-core), single source for the prompt."""
+    return [convert_to_openai_tool(spec) for spec in _SPECS]
+
+
+def tools_prompt_block() -> str:
+    lines = []
+    for schema in tool_schemas():
+        fn = schema["function"]
+        args = ", ".join(f"{n}: {p['type']}" for n, p in fn["parameters"]["properties"].items())
+        lines.append(f"- {fn['name']}({args}): {fn['description']}")
+    return "\n".join(lines)
