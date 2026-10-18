@@ -75,7 +75,11 @@ async def snapshot_usage(agent_id: str, tick: int = 0) -> dict:
     try:
         async with httpx.AsyncClient() as client:
             try:
-                total, used = await openrouter.credits(client, cfg.openrouter_api_key)
+                total, used = await openrouter.credits(
+                    client,
+                    cfg.openrouter_api_key,
+                    base_url=cfg.openrouter_base_url or openrouter.BASE,
+                )
             except (httpx.HTTPError, ValueError, KeyError) as exc:
                 return {"skipped": f"openrouter unreachable: {exc.__class__.__name__}"}
         spend_events = await ledger.events(kind="spend", limit=50)
@@ -328,7 +332,9 @@ async def _openrouter_treasury(cfg: Config) -> float | None:
         return None
     try:
         async with httpx.AsyncClient() as client:
-            total, used = await openrouter.credits(client, cfg.openrouter_api_key)
+            total, used = await openrouter.credits(
+                client, cfg.openrouter_api_key, base_url=cfg.openrouter_base_url or openrouter.BASE
+            )
         return round(total - used, 4)
     except Exception:
         return None

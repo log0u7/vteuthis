@@ -76,6 +76,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `scripts/smoke.sh` is now self-contained and isolated: it starts its own worker and
   fake OpenRouter against `vteuthis_test` (no live ledger, no `--force` on live data)
   and is the real workflow-wiring check (the Temporal test server hangs on this stack).
+- `snapshot_usage` and the treasury probe polled the real openrouter.ai regardless of
+  `VTEUTHIS_OPENROUTER_BASE_URL` (always `401`/skipped when pointed at the fake server);
+  both now honor the configured base URL like the LLM client does.
 - `docs/markets-note.md` listed dependencies the code never had (`langchain-openai`,
   `typer`, `docker`, `pydantic`); the layout sketch now matches the implementation.
 

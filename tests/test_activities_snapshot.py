@@ -14,7 +14,7 @@ async def test_account_burn_recorded_once_and_distributed(db_ledger, monkeypatch
         "population", payload={"slices": {"a0": 50.0, "a1": 50.0}, "dead": [], "generation": 0}
     )
 
-    async def fake_credits(client, key):
+    async def fake_credits(client, key, *, base_url=None):
         return (100.0, 1.0)  # account delta of 1.0 this tick
 
     monkeypatch.setattr("vteuthis.openrouter.credits", fake_credits)
@@ -35,7 +35,7 @@ async def test_snapshot_usage_malformed_200_does_not_crash(db_ledger, monkeypatc
     cfg = Config(initial_usd=100.0, floor_usd=5.0, db_dsn=TEST_DSN, openrouter_api_key="x")
     init_runtime(cfg)
 
-    async def bad_credits(client, key):
+    async def bad_credits(client, key, *, base_url=None):
         raise KeyError("data")
 
     monkeypatch.setattr("vteuthis.openrouter.credits", bad_credits)
@@ -43,3 +43,25 @@ async def test_snapshot_usage_malformed_200_does_not_crash(db_ledger, monkeypatc
     out = await snapshot_usage("a0", 0)
     assert isinstance(out, dict)
     assert "skipped" in out or "error" in out
+
+
+@pytest.mark.db
+async def test_snapshot_usage_uses_configured_base_url(db_ledger, monkeypatch):
+    cfg = Config(
+        initial_usd=100.0,
+        floor_usd=5.0,
+        db_dsn=TEST_DSN,
+        openrouter_api_key="x",
+        openrouter_base_url="http://fake.test/api/v1",
+    )
+    init_runtime(cfg)
+    seen = {}
+
+    async def fake_credits(client, key, *, base_url=None):
+        seen["base_url"] = base_url
+        return (100.0, 0.0)
+
+    monkeypatch.setattr("vteuthis.openrouter.credits", fake_credits)
+
+    await snapshot_usage("account", 0)
+    assert seen["base_url"] == "http://fake.test/api/v1"
