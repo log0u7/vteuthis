@@ -25,10 +25,10 @@ class HeartbeatWorkflow:
             start_to_close_timeout=timedelta(seconds=30),
             retry_policy=RETRY,
         )
+        # temporalio >=1.34: ONE positional arg max, use args=[...] for more.
         usage = await workflow.execute_activity(
             "snapshot_usage",
-            "account",
-            tick,
+            args=["account", tick],
             start_to_close_timeout=timedelta(seconds=60),
             retry_policy=RETRY,
         )
@@ -39,7 +39,7 @@ class HeartbeatWorkflow:
             try:
                 child = await workflow.execute_child_workflow(
                     "AgentWorkflow",
-                    agent_id,
+                    args=[agent_id, tick],
                     id=f"agent-{agent_id}-{workflow.uuid4().hex[:8]}",
                     task_queue="vteuthis",
                     retry_policy=RETRY,
@@ -63,7 +63,7 @@ class HeartbeatWorkflow:
 @workflow.defn(name="AgentWorkflow")
 class AgentWorkflow:
     @workflow.run
-    async def run(self, agent_id: str) -> dict:
+    async def run(self, agent_id: str, tick: int = 0) -> dict:
         out: dict = {"agent_id": agent_id}
         sales = await workflow.execute_activity(
             "poll_revenue",
@@ -82,8 +82,7 @@ class AgentWorkflow:
             return out
         out["tick"] = await workflow.execute_activity(
             "agent_tick",
-            agent_id,
-            gate,
+            args=[agent_id, tick, gate],
             start_to_close_timeout=timedelta(minutes=10),
             retry_policy=RETRY,
         )

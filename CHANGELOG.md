@@ -68,6 +68,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `workflows.py` passed multiple positional args to `execute_activity`, which
+  temporalio 1.34 rejects (one positional max, rest via `args=[...]`): every tick
+  died with a workflow-task TypeError since the retry-policy refactor. `AgentWorkflow`
+  now receives `tick` so `agent_tick` gets the full `(agent_id, tick, gate_plan)`
+  triple instead of `gate` silently landing in `tick`.
+- `scripts/smoke.sh` is now self-contained and isolated: it starts its own worker and
+  fake OpenRouter against `vteuthis_test` (no live ledger, no `--force` on live data)
+  and is the real workflow-wiring check (the Temporal test server hangs on this stack).
 - `docs/markets-note.md` listed dependencies the code never had (`langchain-openai`,
   `typer`, `docker`, `pydantic`); the layout sketch now matches the implementation.
 

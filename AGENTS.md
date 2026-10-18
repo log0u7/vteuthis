@@ -28,8 +28,11 @@ bash scripts/smoke.sh                  # local e2e smoke (fake OpenRouter, no re
   `Ledger.clear()` in tests would wipe the running population.
 - Temporal `AsyncPostgresSaver` needs autocommit connections (`CREATE INDEX CONCURRENTLY`).
 - Child workflow ids must be unique per tick (`workflow.uuid4()`), not per agent name.
-- `execute_child_workflow`/activity args are positional: keep activity signatures
-  `(agent_id, tick)` and update BOTH worker + workflow file together.
+- temporalio 1.34+ `execute_activity`/`execute_child_workflow` take ONE positional
+  arg; everything else goes in `args=[...]`. Multiple positionals = workflow-task
+  TypeError only visible on a real server. `agent_tick` is `(agent_id, tick,
+  gate_plan)`; pass all three via `args=[agent_id, tick, gate]` (a positional
+  `(agent_id, gate)` silently lands `gate` in `tick`).
 - Blocking CLI calls always get a bounded timeout (`run_tick` terminates on timeout).
 - psycopg async connections MUST be closed (`try/finally`): a leaked one wedges the
   next test's event loop (2026-10-15 hang).
@@ -39,7 +42,9 @@ bash scripts/smoke.sh                  # local e2e smoke (fake OpenRouter, no re
   the plan as `gate_plan` and must not re-run it.
 - The Temporal Python test server (`WorkflowEnvironment`) HANGS against this stack
   (worker + postgres pool deadlock). Do not add W-layer tests; cover workflow wiring
-  with the local `scripts/smoke.sh` instead.
+  with `scripts/smoke.sh` (self-contained: compose temporal + fake OpenRouter +
+  `vteuthis_test` DB + its own worker). Run it after ANY change to `workflows.py`:
+  it is the only real check (it caught the temporalio `args=[...]` break, 2026-10-18).
 - `Config.load` merges `.env` UNDER the real environment (runtime wins); tests
   neutralize `.env` via conftest.
 - The agent graph passes langchain-core messages (`SystemMessage`/`HumanMessage`/
