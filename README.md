@@ -1,6 +1,12 @@
 # vteuthis (Vampyroteuthis)
 
-An autonomous agent that must **fund its own inference or die**.
+![vteuthis, the vampire squid agent, chasing its next dollar](vteuthis-v0.png)
+
+**An autonomous agent that must fund its own inference or die.**
+
+[![CI](https://github.com/log0u7/vteuthis/actions/workflows/ci.yml/badge.svg)](https://github.com/log0u7/vteuthis/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org)
+[![lint](https://img.shields.io/badge/lint-ruff-261230)](https://docs.astral.sh/ruff/)
 
 ## Why Vampyroteuthis
 
@@ -87,10 +93,11 @@ the money math, and the wiring are correct. The suite never touches the live
 ledger: `tests/conftest.py` forces `vteuthis_test` before any import.
 
 A local end-to-end smoke (real worker + tick + ledger, LLM pointed at a key-free
-fake OpenRouter, no real keys, no spend):
+fake OpenRouter, no real keys, no spend). Self-contained and isolated: it starts
+its own fake server and worker against `vteuthis_test`, never the live ledger:
 
 ```bash
-bash scripts/smoke.sh    # requires the compose stack up and a worker running
+bash scripts/smoke.sh
 ```
 
 ## Survival mechanics (the thesis core)
@@ -134,4 +141,4 @@ ruff check src tests
 
 - artifact delivery after payment is a plain redirect URL (no gating)
 - revenue currency is whatever the payment link uses; treasury math assumes USD
-- one agent, one graph thread, no parallel workers yet
+- the whole population runs on a single worker; no parallel workers yet

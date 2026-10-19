@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-18
+
+First public release of the POC: agent loop, deterministic controller, multi-agent
+population, append-only ledger, Docker sandbox, CI, and the round 9-10 CI and
+langchain-core fixes.
+
 ### Security
 
 - `tools.fetch_json` validates URLs (scheme + public IP) before streaming: SSRF to
@@ -56,6 +62,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- README: CI/Python/lint badges and hero banner art (`vteuthis-v0.png`); the smoke
+  harness description and the POC ceilings now match the multi-agent population.
 - Removed unused `controller.propose_budget` (cap enforced at publish/price level).
 - CI actions pinned to v7 (`actions/checkout@v7`, `actions/setup-python@v7`, Node 24)
   and runners pinned to `ubuntu-24.04`; the Node 20 deprecation and Ubuntu 26
@@ -94,6 +102,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - CLI: `init`, `run`, `tick`, `status`.
 - Docker compose stack: postgres, temporal (auto-setup), temporal UI.
 
+[0.1.0]: https://github.com/log0u7/vteuthis/releases/tag/v0.1.0
 [0.0.0]: unreleased
 ## Rounds 3-7 (survival mechanics, population, tooling)
 
