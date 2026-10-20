@@ -142,3 +142,13 @@ ruff check src tests
 - artifact delivery after payment is a plain redirect URL (no gating)
 - revenue currency is whatever the payment link uses; treasury math assumes USD
 - the whole population runs on a single worker; no parallel workers yet
+
+## Contributing
+
+Issues and pull requests are welcome; read [CONTRIBUTING.md](CONTRIBUTING.md)
+first. Security problems never go to public issues: use the private reporting
+channel described in [SECURITY.md](SECURITY.md).
+
+## License
+
+Apache-2.0. See [LICENSE](LICENSE).
