@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- README badge: PostgreSQL (LangGraph checkpointing and psycopg use it).
 - Apache-2.0 `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`, GitHub issue and PR
   templates, and weekly Dependabot updates.
 

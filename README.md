@@ -7,6 +7,7 @@
 [![CI](https://github.com/log0u7/vteuthis/actions/workflows/ci.yml/badge.svg)](https://github.com/log0u7/vteuthis/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org)
 [![lint](https://img.shields.io/badge/lint-ruff-261230)](https://docs.astral.sh/ruff/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1.svg)](https://www.postgresql.org)
 
 ## Why Vampyroteuthis
 
