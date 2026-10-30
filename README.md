@@ -5,9 +5,10 @@
 **An autonomous agent that must fund its own inference or die.**
 
 [![CI](https://github.com/log0u7/vteuthis/actions/workflows/ci.yml/badge.svg)](https://github.com/log0u7/vteuthis/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![lint](https://img.shields.io/badge/lint-ruff-261230)](https://docs.astral.sh/ruff/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1.svg)](https://www.postgresql.org)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1.svg?logo=postgresql&logoColor=white)](https://www.postgresql.org)
 
 ## Why Vampyroteuthis
 
